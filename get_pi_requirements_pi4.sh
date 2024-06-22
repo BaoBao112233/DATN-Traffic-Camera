@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Get packages required for OpenCV
 
 sudo apt-get -y install libjpeg-dev libtiff5-dev libjasper-dev libpng12-dev
