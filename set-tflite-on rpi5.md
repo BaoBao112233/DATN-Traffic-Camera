@@ -1,0 +1,36 @@
+-   Set Tensorflow Lite on Rasberry PI 5 (Im using py 3.9.5) 
+    -   Down-date from Py 3.11 to Py 3.9 or 3.8
+        -   Turn on the Terminal: Ctrl + Alt + T
+        -   Remove Py 3.11.2:
+            -   Remmove Py 3.11.2: sudo apt remove python-3.11.2
+            -   Remoe all file no-need: sudo apt autoremove
+        -   Install py 3.9 or 3.8:
+            -   Update packages: sudo apt update
+            -   Install essential packages for compiling source code: 
+                -   sudo apt install wget build-essential checkinstall -y
+                -   sudo apt install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev curl
+            -   Install Py 3.9.5 from the official download site with this command:
+                -   wget https://www.python.org/ftp/python/3.9.5/Python-3.9.5.tar.xz
+                -   When fineshed downloading unpack: tar -Jxf Python-3.9.5.tar.xz
+            -   Move on Py3.9.5 folder: cd Python-3.9.5
+            -   Prepare the source for the installation: 
+                -  ./configure --enable-optimizations
+                -   make -j 4
+                -   sudo make altinstall
+            -   Push python into Rasberry PI OS:
+                -   echo "alias python='/usr/local/bin/python3.9'" >> ~/.bashrc
+                -   . ~/.bashrc
+                -   python -V
+    -   Install Tensorflow Lite into Rasberry PI 5:
+        -   Update pip package: python3 -m pip install --upgrade pip 
+        -   Install Virtualenv to create an enviroment: 
+            -   python3 -m pip install virtualenv (Option 1 - recommanded)
+            -   pip3 install virtualenv (Option 2)
+        -   Install the Tensorflow:
+            -   pip3 install tensorflow
+        -   Install the TF Lite Support (version 0.4.2 or higher)
+            -   pip3 install tflite-support>=0.4.2
+    -   Bonus: You can get the setup file on 2 github link:
+        -   [Tensorflow Example](https://github.com/tensorflow/examples/tree/master/lite/examples/object_detection/raspberry_pi) (requirement.txt)
+        -   []() (requirement.txt)
+        
