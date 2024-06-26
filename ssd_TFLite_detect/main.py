@@ -20,10 +20,10 @@ polygon_file = polygons_folder + '/' + 'polygon.json'
 
 results_folder = './results_folder'
 result_file = results_folder + '/' + 'results.json'
+prediction_file = results_folder + '/' + 'predictions.json'
 
 models_folder = './All_Model_detect'
 model_file = models_folder + '/Sample_TFLite_model' + '/' + 'detect.tflite'
-
 label_file = models_folder + '/Sample_TFLite_model' + '/' + "labelmap.txt"
 
 parser = argparse.ArgumentParser()
@@ -35,6 +35,68 @@ parser.add_argument('--results_path', help="Path of results json file", default=
 args = parser.parse_args()
 
 VIDEO_PATH = args.video_path
+
+def save_to_json(boxes, scores, classes, filename):
+    data = []
+    for box, score, cls in zip(boxes, scores, classes):
+        data.append({
+            'box': [float(coord) for coord in box],
+            'score': float(score),
+            'class': int(cls)
+        })
+    
+    if len(data) != 0:
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=4)
+
+def non_max_suppression(boxes, scores, iou_threshold):
+    keep_boxes = []
+    sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    
+    while sorted_indices:
+        current_index = sorted_indices.pop(0)
+        keep_boxes.append(current_index)
+        
+        remaining_indices = []
+        for index in sorted_indices:
+            iou = compute_iou(boxes[current_index], boxes[index])
+            if iou <= iou_threshold:
+                remaining_indices.append(index)
+        
+        sorted_indices = remaining_indices
+    
+    return keep_boxes
+
+def compute_iou(box1, box2):
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
+    
+    inter_area = max(0, x2 - x1) * max(0, y2 - y1)
+    box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
+    box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
+    
+    iou = inter_area / float(box1_area + box2_area - inter_area)
+    return iou
+
+def non_max_suppression_per_class(boxes, scores, classes, iou_threshold):
+    unique_classes = set(classes)
+    final_boxes = []
+    final_scores = []
+    final_classes = []
+
+    for cls in unique_classes:
+        cls_indices = [i for i, c in enumerate(classes) if c == cls]
+        cls_boxes = [boxes[i] for i in cls_indices]
+        cls_scores = [scores[i] for i in cls_indices]
+        
+        keep_indices = non_max_suppression(cls_boxes, cls_scores, iou_threshold)
+        final_boxes.extend([cls_boxes[i] for i in keep_indices])
+        final_scores.extend([cls_scores[i] for i in keep_indices])
+        final_classes.extend([cls] * len(keep_indices))
+
+    return final_boxes, final_scores, final_classes
 
 # Create a tracker based on tracker name
 trackerTypes = ['BOOSTING', 'MIL', 'KCF','TLD', 'MEDIANFLOW', 'GOTURN', 'MOSSE', 'CSRT']
@@ -126,6 +188,9 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
     # Get Polygon_calculate
     polygon_cal = polygon_calculate(JSON_PATH,imW,imH)
 
+    with open(JSON_PATH) as json_file:
+        data = json.load(json_file)
+
     # Create VideoWriter object
     out = cv2.VideoWriter(saved_video_path, fourcc, fps, (imW, imH))
 
@@ -151,6 +216,11 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
         scores_new = []
         centroid_new = []
 
+        boxes_news = []
+        classes_news = []
+        scores_news = []
+        IOUs = []
+
         class_checks = [0,1,2,3,5,6,10,15,16,17,18,19,20,21,22]
         #class_checks = [0,3,4]
         for i in range(len(scores)):
@@ -164,11 +234,22 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
                     xmax = int(min(imW,(boxes[i][3] * imW)))
                     
                     # if(polygon_cal.area_box((xmin,ymin,xmax,ymax),limit_area)):
-                    centroid_new.append([int((xmin+xmax)//2),int((ymin+ymax)//2)])
-                    boxes_new.append((xmin,ymin,xmax,ymax))
-                    classes_new.append(classes[i])
-                    scores_new.append(scores[i])
+                    boxes_news.append((xmin,ymin,xmax,ymax))
+                    classes_news.append(classes[i])
+                    scores_news.append(scores[i])
         # print("SHAPE CALASS: ",classes_new,"|||", scores_new)
+        for i in range(len(boxes_news)):
+            for j in range(len(boxes_news)):
+                if i == j:
+                    continue
+                IOUs.append(compute_iou(boxes_news[i], boxes_news[j]))
+
+        iou_threshold = max(IOUs) - min(IOUs)
+        boxes_new, scores_new, classes_new = non_max_suppression_per_class(boxes_news, scores_news, classes_news, iou_threshold)
+
+        for box in boxes_new:
+            centroid_new.append([int((box[0]+box[2])//2),int((box[1]+box[3])//2)])
+
         return boxes_new,classes_new,scores_new,centroid_new
 
     boxes, classes,scores ,centroids_old = [],[],[],[]
@@ -188,8 +269,6 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
                 break
 
             frame_old, frame = polygon_cal.cut_frame_polygon(frame)
-            # cv2.imshow('Object detector', frame)
-
 
             # get updated location of objects in subsequent frames
             success, boxes_update = multiTracker.update(frame)
@@ -202,32 +281,40 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
                 PointsInfor = polygon_cal.check_result(controids,centroids_old)
                 key = seconds_to_hhmmss(frame_id+1/fps) # Can update about dayline
                 value = PointsInfor
-                # print(f"Information point: {in4}  \n")
                 result_queue_cam[key] = value
                 CHECK_CAM = True
                 count = 0
 
             if count == 0:
                 boxes, classes, scores, centroids_old = detect_ssd(frame)
-                
+                save_to_json(boxes, scores, classes, results_folder+'/'+f'prediction_{frame_id}.json')
                 if len(boxes) ==0:
                     count = num_frame_to_detect-1
-                    # continue
 
                 multiTracker = cv2.legacy.MultiTracker_create()
                 # Initialize MultiTracker
                 for bbox in boxes:
                     box_track = (bbox[0],bbox[1],bbox[2]-bbox[0],bbox[3]-bbox[1])
                     multiTracker.add(createTrackerByName(trackerType), frame, box_track)
-                    cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+                    cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0, 255, 0), 2)
 
                     for _class, score in zip(classes, scores):
-                        # print(labels[int(_class)])
-                        cv2.putText(frame, f'{labels[int(_class)]} {score:.2f}', (bbox[0], bbox[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                        cv2.putText(frame, f'{labels[int(_class)]} {score:.2f}', (int(bbox[0]), int(bbox[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
                 for point in centroids_old:
                     cv2.circle(frame, point, 5, (0, 0, 255), -1)
 
+                for point in data['left']:
+                    frame = cv2.circle( frame, (point[0], point[1]), 3, (255,0,0), -1)
+                
+                for point in data['right']:
+                    frame = cv2.circle( frame, (point[0], point[1]), 3, (0,255,0), -1)
+
+                frame = cv2.polylines(frame, [np.int32(data['left'])], False, (255,0, 0), thickness=1)
+                frame = cv2.polylines(frame, [np.int32(data['right'])], False, (0,255, 0), thickness=1)
+
+                frame = cv2.circle(frame, (data['POINT_RIGHT'][0], data['POINT_RIGHT'][1]), 5, (0, 255, 255), -1)
+                frame = cv2.circle(frame, (data['POINT_LEFT'][0], data['POINT_LEFT'][1]), 5, (255, 0, 255), -1)
                 # cv2.imshow('Object detector', frame)
 
             count+=1
@@ -246,14 +333,7 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
 def main_process():
     global CHECK_CAM
     global VIDEO_PATH
-
-    NUM_CHECK_WARNING = 5
-    INDEX_WARNING= 0
-
-    CHECK_FRAME_FORBIDDEN_LEFT = np.zeros(NUM_CHECK_WARNING)
-    CHECK_FRAME_FORBIDDEN_RIGHT = np.zeros(NUM_CHECK_WARNING)
-    CHECK_FRAME_FREEZE = np.zeros(NUM_CHECK_WARNING)
-
+    
     result_queue_cam = {}
     imW,imH = 1280,720
     videostream = cv2.VideoCapture(VIDEO_PATH)
@@ -262,7 +342,7 @@ def main_process():
     if not videostream.isOpened():
         print("Error")
         exit()
-    detect_camera(videostream,imW,imH, 60, fourcc, total_frames, result_queue_cam)
+    detect_camera(videostream,imW,imH, 30, fourcc, total_frames, result_queue_cam)
 
 if __name__ == "__main__":
     # Run the main process
