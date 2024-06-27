@@ -181,17 +181,10 @@ class polygon_calculate():
         return (point_check.distance(point_old) - point_check.distance(point_new))
     
     def cut_frame_polygon(self, frame):
-        # Tạo một mask đen với kích thước bằng với frame
-    
+        # Create black mask with with size = frame's size
         mask = np.zeros_like(frame)
-
-
-        # print("area:",[self.points['area']])
-        # Vẽ đa giác trắng lên mask
+        # Draw while polygon on the mask
         cv2.fillPoly(mask, [self.points['area']],(255, 255, 255))
-        # cv2.fillPoly(mask, [polygon_right], (255, 255, 255))
-
-        # Áp dụng mask để cắt frame
+        # Fill mask - cut frame
         result = cv2.bitwise_and(frame, mask)
-
         return frame, result
