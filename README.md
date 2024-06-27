@@ -7,11 +7,11 @@
 5.  Run file draw_shapely.py first to draw the area, the path may be the of your video or IP Camera:
   -  python3 ssd_TFLite_detect\draw_shaply.py --video_path='the path"
   -  Help:
-      's': stop video
-      'r': continue video
-      'a': draw big area
-      't': draw left area
-      'p': draw right area
-      'q': quit program
+      + 's': stop video
+      + 'r': continue video
+      + 'a': draw big area
+      + 't': draw left area
+      + 'p': draw right area
+      + 'q': quit program
 6.  Then run the main.py:
   -  python3 ssd_TFLite_detect\main.py --video_path='the path"
