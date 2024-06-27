@@ -133,7 +133,7 @@ def seconds_to_hhmmss(seconds):
     seconds = seconds % 60
     return f"{round(hours)}:{round(minutes)}:{round(seconds)}"
 
-def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_cam):
+def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
     # ... (your existing code for camera detection)
     # Assuming PointsInfor is the result from camera detection
     global CHECK_CAM
@@ -171,6 +171,8 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
     height = input_details[0]['shape'][1]
     width = input_details[0]['shape'][2]
 
+    print(width, height)
+
     floating_model = (input_details[0]['dtype'] == np.float32)
 
     input_mean = 127.5
@@ -185,11 +187,13 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
     else: # This is a TF1 model
         boxes_idx, classes_idx, scores_idx = 0, 1, 2
     
+   
     # Get Polygon_calculate
-    polygon_cal = polygon_calculate(JSON_PATH,imW,imH)
-
     with open(JSON_PATH) as json_file:
         data = json.load(json_file)
+
+    imW,imH = data['size_width'], data['size_height']
+    polygon_cal = polygon_calculate(JSON_PATH,imW,imH)
 
     # Create VideoWriter object
     out = cv2.VideoWriter(saved_video_path, fourcc, fps, (imW, imH))
@@ -199,6 +203,7 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_resized = cv2.resize(frame_rgb, (width, height))
         input_data = np.expand_dims(frame_resized, axis=0)
+        # print(input_data)
         # Normalize pixel values if using a floating model (i.e. if model is non-quantized)
         if floating_model:
             input_data = (np.float32(input_data) - input_mean) / input_std
@@ -242,9 +247,11 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
             for j in range(len(boxes_news)):
                 if i == j:
                     continue
+                # print(boxes_news[i], "-", boxes_news[j])
                 IOUs.append(compute_iou(boxes_news[i], boxes_news[j]))
 
-        iou_threshold = max(IOUs) - min(IOUs)
+        # print(IOUs)
+        iou_threshold = 0.3#max(IOUs) - min(IOUs)
         boxes_new, scores_new, classes_new = non_max_suppression_per_class(boxes_news, scores_news, classes_news, iou_threshold)
 
         for box in boxes_new:
@@ -267,7 +274,8 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
             ret, frame = videostream.read()
             if not ret:
                 break
-
+            
+            frame = cv2.resize(frame, (imW, imH))
             frame_old, frame = polygon_cal.cut_frame_polygon(frame)
 
             # get updated location of objects in subsequent frames
@@ -315,7 +323,7 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
 
                 frame = cv2.circle(frame, (data['POINT_RIGHT'][0], data['POINT_RIGHT'][1]), 5, (0, 255, 255), -1)
                 frame = cv2.circle(frame, (data['POINT_LEFT'][0], data['POINT_LEFT'][1]), 5, (255, 0, 255), -1)
-                # cv2.imshow('Object detector', frame)
+                cv2.imshow('Object detector', frame)
 
             count+=1
             frame_id+=1
@@ -333,16 +341,15 @@ def detect_camera(videostream,imW,imH, fps, fourcc, total_frames, result_queue_c
 def main_process():
     global CHECK_CAM
     global VIDEO_PATH
-    
+
     result_queue_cam = {}
-    imW,imH = 1280,720
     videostream = cv2.VideoCapture(VIDEO_PATH)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     total_frames = int(videostream.get(cv2.CAP_PROP_FRAME_COUNT))
     if not videostream.isOpened():
         print("Error")
         exit()
-    detect_camera(videostream,imW,imH, 30, fourcc, total_frames, result_queue_cam)
+    detect_camera(videostream, 30, fourcc, total_frames, result_queue_cam)
 
 if __name__ == "__main__":
     # Run the main process
