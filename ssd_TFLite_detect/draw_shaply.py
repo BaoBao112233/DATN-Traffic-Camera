@@ -20,8 +20,17 @@ args = parser.parse_args()
 video_path = args.video_path
 
 video = cv2.VideoCapture(video_path)
+if not video.isOpened():
+    print("Error: Could not open video.")
+    exit()
 video_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
 video_width =int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+if video_height >= 720:
+    video_height = int(video_height * (720/video_height))
+
+if video_width >= 1280:
+    video_width = int(video_width * (1280/video_width))
 
 # click left mouse to add point for polygon of dict points left and right 
 def handle_point_click(event, x, y, flags, points):
@@ -52,34 +61,47 @@ POINTS['POINT_LEFT']= [0,0]
 point_medial = []
 
 print("draw right road \n")
-while True:
-    res,frame = video.read()
-    frame_resized = cv2.resize(frame, (video_width, video_height))
 
-    # draw polygon
-    frame = draw_polygon(frame_resized, POINTS)
-    frame = cv2.circle(frame, (POINTS['POINT_RIGHT'][0], POINTS['POINT_RIGHT'][1]), 5, (0, 255, 255), -1)
-    frame = cv2.circle(frame, (POINTS['POINT_LEFT'][0], POINTS['POINT_LEFT'][1]), 5, (255, 0, 255), -1)
+paused = False
 
-    cv2.imshow("Draw Polygon", frame_resized)
-    
-    cv2.setMouseCallback('Draw Polygon', handle_point_click, POINTS)
+while video.isOpened():
+    if not paused:
+        ret, frame = video.read()
+        if not ret:
+            break
+        frame_resized = cv2.resize(frame, (video_width, video_height))
 
-    key = cv2.waitKeyEx(1)
-    if key == ord('a'): # Draw biggest area
+        # draw polygon
+        frame = draw_polygon(frame_resized, POINTS)
+        frame = cv2.circle(frame, (POINTS['POINT_RIGHT'][0], POINTS['POINT_RIGHT'][1]), 5, (0, 255, 255), -1)
+        frame = cv2.circle(frame, (POINTS['POINT_LEFT'][0], POINTS['POINT_LEFT'][1]), 5, (255, 0, 255), -1)
+
+        cv2.imshow("Draw Polygon", frame_resized)
+        
+        cv2.setMouseCallback('Draw Polygon', handle_point_click, POINTS)
+
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('a'): # Press 'a' to draw biggest area
+        print("Draw area")
         POINTS['area'] = POINTS['left']
         POINTS['left'] = []
     
-    elif key == ord('q'): # Quit Botton
+    elif key == ord('q'): # Press 'q' to quit 
         break
     
-    elif key == ord('p'): # Draw right point
+    elif key == ord('p'): # Press 'p' to draw right point
         POINTS['POINT_RIGHT'] = POINTS['POINT_LEFT']
     
-    elif key == ord('t'): # Draw right area
+    elif key == ord('t'): # Press 't' to draw right area
         print("draw left road \n")
         POINTS['right'] = POINTS['left'] 
         POINTS['left'] = []
+    
+    elif key == ord('s'):  # Press 's' to pause
+        paused = True
+
+    elif key == ord('r'):  # Press 'r' to resume
+        paused = False
 
 # Clean up
 cv2.destroyAllWindows()
