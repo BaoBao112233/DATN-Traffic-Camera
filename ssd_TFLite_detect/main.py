@@ -242,16 +242,8 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
                     boxes_news.append((xmin,ymin,xmax,ymax))
                     classes_news.append(classes[i])
                     scores_news.append(scores[i])
-        # print("SHAPE CALASS: ",classes_new,"|||", scores_new)
-        for i in range(len(boxes_news)):
-            for j in range(len(boxes_news)):
-                if i == j:
-                    continue
-                # print(boxes_news[i], "-", boxes_news[j])
-                IOUs.append(compute_iou(boxes_news[i], boxes_news[j]))
-
-        # print(IOUs)
-        iou_threshold = 0.3#max(IOUs) - min(IOUs)
+       
+        iou_threshold = 0.2
         boxes_new, scores_new, classes_new = non_max_suppression_per_class(boxes_news, scores_news, classes_news, iou_threshold)
 
         for box in boxes_new:
@@ -323,7 +315,7 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
 
                 frame = cv2.circle(frame, (data['POINT_RIGHT'][0], data['POINT_RIGHT'][1]), 5, (0, 255, 255), -1)
                 frame = cv2.circle(frame, (data['POINT_LEFT'][0], data['POINT_LEFT'][1]), 5, (255, 0, 255), -1)
-                cv2.imshow('Object detector', frame)
+                # cv2.imshow('Object detector', frame)
 
             count+=1
             frame_id+=1
