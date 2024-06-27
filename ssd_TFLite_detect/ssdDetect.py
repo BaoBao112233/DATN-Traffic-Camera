@@ -3,7 +3,6 @@ import numpy as np
 import json
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
-from random import randint
 from shapely.geometry import box
 
 class polygon_calculate():
