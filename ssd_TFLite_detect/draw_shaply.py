@@ -3,7 +3,6 @@ import argparse
 import cv2
 import numpy as np
 import json
-import time
 
 polygons_folder = './polygon_folder'
 polygon_file = polygons_folder + '/' + 'polygon.json'
