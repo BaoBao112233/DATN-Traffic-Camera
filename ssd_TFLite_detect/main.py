@@ -139,8 +139,9 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
     global CHECK_CAM
 
     min_conf_threshold = float(0.55)
-    JSON_PATH = polygon_file
-    RESULT_JSON_PATH = result_file
+    JSON_PATH = args.polygon_path
+    RESULT_JSON_PATH = args.results_path
+    SAVED_VIDEO_PATH = args.saved_video_path
 
     pkg = importlib.util.find_spec('tflite_runtime')
 
@@ -194,6 +195,14 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
 
     imW,imH = data['size_width'], data['size_height']
     polygon_cal = polygon_calculate(JSON_PATH,imW,imH)
+
+
+    # Get the directory name from the path
+    directory = os.path.dirname(RESULT_JSON_PATH)
+
+    # Create the directory if it does not exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     # Create VideoWriter object
     out = cv2.VideoWriter(saved_video_path, fourcc, fps, (imW, imH))
@@ -322,9 +331,17 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
             out.write(frame)
             pbar.update(1)
 
+    # Get the directory name from the path
+    directory = os.path.dirname(RESULT_JSON_PATH)
+
+    # Create the directory if it does not exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
     with open(RESULT_JSON_PATH, 'w') as json_file:
         json.dump(result_queue_cam, json_file, indent=4)
-    print(f"Result has been saved to {RESULT_JSON_PATH}")
+    print(f"Result has been saved to: {RESULT_JSON_PATH}")
+    print(f"Video result has ben saved to: {SAVED_VIDEO_PATH}")
     videostream.release()
     out.release()
     cv2.destroyAllWindows()
