@@ -199,12 +199,15 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
 
 
     # Get the directory name from the path
-    directory = os.path.dirname(RESULT_JSON_PATH)
+    result_directory = os.path.dirname(RESULT_JSON_PATH)
 
+    saved_video_directory = os.path.dirname(SAVED_VIDEO_PATH)
     # Create the directory if it does not exist
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if not os.path.exists(result_directory):
+        os.makedirs(result_directory)
 
+    if not os.path.exists(saved_video_directory):
+        os.makedirs(saved_video_directory)
     # Create VideoWriter object
     out = cv2.VideoWriter(saved_video_path, fourcc, fps, (imW, imH))
 
@@ -234,7 +237,6 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
         boxes_news = []
         classes_news = []
         scores_news = []
-        IOUs = []
 
         class_checks = [0,1,2,3,5,6,10,15,16,17,18,19,20,21,22]
         #class_checks = [0,3,4]
