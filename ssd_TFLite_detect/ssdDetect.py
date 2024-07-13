@@ -131,18 +131,18 @@ class polygon_calculate():
         return frame
     
 
-    def check_result(self,points,points_old):
+    def check_result(self,points,points_old, fps):
         polygon = self.points
         point_Infor = {
             "Left":False,
             "Right":False,
             "Forbidden_left":False,
             "Forbidden_right":False,
-            "freeze" :False
+            "freeze" :False,
+            "FPS": fps
         }
         try:
             for i in range(len(points)):
-                
                 point_old = points_old[i]
                 point_new = points[i]
                 if self.isInside(polygon['left'], point_new):
