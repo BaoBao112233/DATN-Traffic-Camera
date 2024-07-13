@@ -8,6 +8,7 @@ from tensorflow.lite.python.interpreter import Interpreter
 from ssdDetect import polygon_calculate
 import json
 from tqdm import tqdm
+import time
 
 OUTPUT_LEDS = [0,0,0]  
 CHECK_CAM = False
@@ -172,7 +173,7 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
     height = input_details[0]['shape'][1]
     width = input_details[0]['shape'][2]
 
-    print(width, height)
+    # print(width, height)
 
     floating_model = (input_details[0]['dtype'] == np.float32)
 
@@ -270,6 +271,10 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
         count = 0
         num_frame_to_detect = 8
         frame_id = 0
+        start_time = time.time()
+        fps_show = 0
+        frame_count = 0
+
         while(True):
             # Acquire frame and resize to expected shape [1xHxWx3]
             ret, frame = videostream.read()
@@ -285,12 +290,24 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
+            # Increase the number of frames read
+            frame_count += 1
+
+            # FPS calculation
+            elapsed_time = time.time() - start_time
+            # print(elapsed_time)
+            if elapsed_time >= 1:
+                fps_show = frame_count / elapsed_time
+                start_time = time.time()
+                frame_count = 0
+
             if count == num_frame_to_detect:
                 controids = polygon_cal.centroid(boxes_update)
-                PointsInfor = polygon_cal.check_result(controids,centroids_old)
+                PointsInfor = polygon_cal.check_result(controids,centroids_old,fps_show)
                 key = seconds_to_hhmmss(frame_id+1/fps) # Can update about dayline
                 value = PointsInfor
                 result_queue_cam[key] = value
+                # print(result_queue_cam)
                 CHECK_CAM = True
                 count = 0
 
@@ -324,6 +341,8 @@ def detect_camera(videostream, fps, fourcc, total_frames, result_queue_cam):
 
                 frame = cv2.circle(frame, (data['POINT_RIGHT'][0], data['POINT_RIGHT'][1]), 5, (0, 255, 255), -1)
                 frame = cv2.circle(frame, (data['POINT_LEFT'][0], data['POINT_LEFT'][1]), 5, (255, 0, 255), -1)
+                
+                frame = cv2.putText(frame, f'FPS: {fps_show:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
                 # cv2.imshow('Object detector', frame)
 
             count+=1
